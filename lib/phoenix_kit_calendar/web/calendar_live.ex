@@ -1123,21 +1123,7 @@ defmodule PhoenixKitCalendar.Web.CalendarLive do
     end
   end
 
-  # `TimeZone` is public from core 2.13.9, and the `:phoenix_kit` requirement
-  # stays a two-segment `~> 2.0` on purpose — narrowing it to one core minor
-  # makes `mix deps.get` unsolvable for any host running this module beside a
-  # different core (see `test/core_pin_conformance_test.exs`). So it is
-  # feature-detected; an older core has no identifiers to tell apart and
-  # every value takes the signature path, which is the offset comparison it
-  # always did.
-  #
-  # `Code.ensure_loaded?/1` as well as `function_exported?/3`: the latter
-  # answers false for a module that has merely not been loaded, which under a
-  # release is the normal state.
-  defp identifier?(tz) do
-    Code.ensure_loaded?(TimeZone) and function_exported?(TimeZone, :identifier?, 1) and
-      function_exported?(TimeZone, :effectively_same?, 2) and TimeZone.identifier?(tz)
-  end
+  defp identifier?(tz), do: TimeZone.identifier?(tz)
 
   # What noon means in UTC on the 1st and 15th of every month of this year.
   # A fixed offset gives the same answer all year, so it equals a zone only

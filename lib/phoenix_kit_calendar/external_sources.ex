@@ -167,8 +167,8 @@ defmodule PhoenixKitCalendar.ExternalSources do
 
   @doc """
   Hides or shows a source for the user, for good. Answers the new hidden
-  keys — also when they could not be saved (an older core, a user that is
-  not a stored one), so the page still does what was asked for this visit.
+  keys — also when they could not be saved (a user that is not a stored
+  one), so the page still does what was asked for this visit.
   """
   @spec set_hidden(map() | nil, String.t(), boolean()) :: [String.t()]
   def set_hidden(user, key, hidden?), do: set_hidden(user, hidden(user), key, hidden?)
@@ -191,14 +191,7 @@ defmodule PhoenixKitCalendar.ExternalSources do
   end
 
   defp persist(%User{} = user, keys) do
-    # ensure_loaded before function_exported?: the latter never loads a module
-    if Code.ensure_loaded?(Auth) and function_exported?(Auth, :merge_user_custom_fields, 3) do
-      apply(Auth, :merge_user_custom_fields, [
-        user,
-        %{@hidden_field => keys},
-        [ensure_definitions: false]
-      ])
-    end
+    Auth.merge_user_custom_fields(user, %{@hidden_field => keys}, ensure_definitions: false)
 
     :ok
   rescue

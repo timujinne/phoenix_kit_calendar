@@ -38,7 +38,7 @@ end
 
 Then `mix deps.get` and run `mix phoenix_kit.update` in the host app (the events table ships as PhoenixKit core migration V141). Enable the module on `/admin/modules`.
 
-Requires `phoenix_kit` with sub-permission support (> 1.7.179).
+Requires `phoenix_kit` `>= 3.5.0 and < 4.0.0`.
 
 ## Development
 

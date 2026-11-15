@@ -37,31 +37,24 @@ db_name =
   Application.get_env(:phoenix_kit_calendar, PhoenixKitCalendar.Test.Repo)[:database] ||
     "phoenix_kit_calendar_test"
 
-# The preflight ships in core, and this module's core floor (`~> 2.0`)
-# predates it — so it is used when the running core has it, and otherwise
-# this falls through to exactly the previous behaviour.
+# One classified connection attempt, with the repo's OWN credentials and
+# transport, before anything starts the pool.
+#
+# This replaces a `psql -lqt` listing. That check asked the wrong question:
+# it ran as the shell's user over a unix socket, so it reported "the
+# database is there" and said nothing about whether the CONFIGURED role
+# could reach it over TCP. When it could not, the answer arrived minutes
+# later as a pool checkout timeout that reads like a flaky test.
 db_check =
-  if Code.ensure_loaded?(PhoenixKit.TestSupport.PostgresPreflight) do
-    # One classified connection attempt, with the repo's OWN credentials and
-    # transport, before anything starts the pool.
-    #
-    # This replaces a `psql -lqt` listing. That check asked the wrong question:
-    # it ran as the shell's user over a unix socket, so it reported "the
-    # database is there" and said nothing about whether the CONFIGURED role
-    # could reach it over TCP. When it could not, the answer arrived minutes
-    # later as a pool checkout timeout that reads like a flaky test.
-    case PhoenixKit.TestSupport.PostgresPreflight.check(
-           Application.get_env(:phoenix_kit_calendar, PhoenixKitCalendar.Test.Repo, [])
-         ) do
-      :ok ->
-        :exists
+  case PhoenixKit.TestSupport.PostgresPreflight.check(
+         Application.get_env(:phoenix_kit_calendar, PhoenixKitCalendar.Test.Repo, [])
+       ) do
+    :ok ->
+      :exists
 
-      {:error, _reason, message} ->
-        IO.puts(:stderr, "\n" <> message)
-        :not_found
-    end
-  else
-    :try_connect
+    {:error, _reason, message} ->
+      IO.puts(:stderr, "\n" <> message)
+      :not_found
   end
 
 repo_available =
@@ -136,16 +129,8 @@ Application.put_env(:phoenix_kit_calendar, :test_repo_available, repo_available)
 # Rate limiter backend — Auth.register_user/2 (used by test fixtures) hits it.
 {:ok, _pid} = PhoenixKit.Users.RateLimiter.Backend.start_link([])
 
-# `migrations_build_alone_test.exs` uses core's
-# `PhoenixKit.TestSupport.ModuleChainCheck`, which the first core release after
-# 2.64.1 ships; against an older core in `deps/` it is excluded.
-chain_check =
-  if Code.ensure_loaded?(PhoenixKit.TestSupport.ModuleChainCheck),
-    do: [],
-    else: [:requires_module_chain_check]
-
 # Exclude integration tests when DB is not available
-exclude = if repo_available, do: chain_check, else: [:integration | chain_check]
+exclude = if repo_available, do: [], else: [:integration]
 
 # Force PhoenixKit's URL prefix cache to an empty string for tests so
 # `Paths.index()` etc. produce paths the test router can match. Admin
@@ -163,11 +148,3 @@ if repo_available do
 end
 
 ExUnit.start(exclude: exclude)
-
-# The manifest test builds the module's tables with `ModuleChainCheck.build_alone/4`
-# and hands the manifest to repair (`PhoenixKit.Module.expected_schema/0`); both
-# arrive in the first core release after 2.64.1.
-unless Code.ensure_loaded?(PhoenixKit.TestSupport.ModuleChainCheck) and
-         function_exported?(PhoenixKit.TestSupport.ModuleChainCheck, :build_alone, 4) do
-  ExUnit.configure(exclude: [:requires_core_expected_schema | ExUnit.configuration()[:exclude]])
-end
